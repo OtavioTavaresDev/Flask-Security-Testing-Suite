@@ -1,18 +1,18 @@
-# ?? Relatório de Ataque de Força Bruta com RockYou - Kali Linux
+# RelatÃ³rio de Ataque de ForÃ§a Bruta com RockYou - Kali Linux
 
 **Ferramenta utilizada:** Hydra  
-**Alvo:** Servidor Flask vulnerável  
+**Alvo:** Servidor Flask vulnerÃ¡vel  
 **IP do alvo:** `192.168.x.x` (substitua pelo IP real)  
 **Porta:** `5000`  
 **Wordlist:** `rockyou.txt`  
 
-## ?? Passo a Passo Executado
+## Passo a Passo Executado
 
-### 1. Preparação do Ambiente
+### 1. PreparaÃ§Ã£o do Ambiente
 - **Sistema:** Kali Linux 2023.4  
 - **Wordlist:**  
   ```bash
-  # Descompactei o rockyou.txt (se necessário)
+  # Descompactei o rockyou.txt (se necessÃ¡rio)
   sudo gunzip /usr/share/wordlists/rockyou.txt.gz
 
 Comando Hydra Executado
@@ -24,19 +24,19 @@ Senha quebrada: admin: 123456
 
 Tempo de ataque: 1 minuto
 
-Fator,	Risco,	Explicação:
+Fator,	Risco,	ExplicaÃ§Ã£o:
 
-Senha comum,	Crítico,	Presente no top 0.1% do rockyou.txt
-Sem rate limiting,	Alto,	Servidor permitiu >1M requisições em 2 horas
-Protocolo HTTP,	Médio,	Credenciais trafegadas em texto claro
+Senha comum,	CrÃ­tico,	Presente no top 0.1% do rockyou.txt
+Sem rate limiting,	Alto,	Servidor permitiu >1M requisiÃ§Ãµes em 2 horas
+Protocolo HTTP,	MÃ©dio,	Credenciais trafegadas em texto claro
 
-?? Recomendações de Mitigação
-Bloqueio progressivo após 5 tentativas falhas
+ RecomendaÃ§Ãµes de MitigaÃ§Ã£o
+Bloqueio progressivo apÃ³s 5 tentativas falhas
 
 Trocar para HTTPS com certificado SSL
 
-Monitorar logs para detectar padrões de ataque
+Monitorar logs para detectar padrÃµes de ataque
 
 Implementar 2FA para contas privilegiadas
 
-?? O rockyou.txt contém 14 milhões de senhas reais vazadas. Senhas como "senha123" são encontradas rapidamente.
+ O rockyou.txt contÃ©m 14 milhÃµes de senhas reais vazadas. Senhas como "senha123" sÃ£o encontradas rapidamente.
