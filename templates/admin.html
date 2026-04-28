@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard – Pentest Recon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Cabeçalho -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-indigo-700">🛡️ Admin Dashboard</h1>
+            <div class="flex gap-2 items-center">
+                <span class="text-sm text-gray-500">RPS Global: <strong>{{ current_rps_global }}</strong></span>
+                <span class="text-sm text-gray-500">|</span>
+                <span class="text-sm text-gray-500">IPs Banidos: <strong>{{ banned_ips|length }}</strong></span>
+                <a href="/" class="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600">← Site</a>
+            </div>
+        </div>
+
+        <!-- Linha 1: Controles Rate Limiter -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <!-- Rate Limiter Global -->
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">🌐 Rate Limiter Global</h2>
+                <div class="flex gap-4 mb-2">
+                    <p class="text-sm">Status: <span class="font-bold {{ 'text-green-600' if rate_enabled else 'text-red-600' }}">{{ 'ATIVO' if rate_enabled else 'DESATIVADO' }}</span></p>
+                    <p class="text-sm">Modo: <span class="font-bold {{ 'text-purple-600' if auto_rps_global else 'text-blue-600' }}">{{ 'AUTO' if auto_rps_global else 'MANUAL' }}</span></p>
+                </div>
+                <p class="text-sm mb-4">RPS: <strong>{{ current_rps_global }}</strong></p>
+                <div class="flex gap-2 flex-wrap">
+                    <form method="POST" action="/admin/toggle-rate"><button class="px-4 py-2 {{ 'bg-red-500' if rate_enabled else 'bg-green-500' }} text-white rounded-lg text-sm">{{ 'Desativar' if rate_enabled else 'Ativar' }}</button></form>
+                    <form method="POST" action="/admin/toggle-auto-global"><button class="px-4 py-2 {{ 'bg-purple-500' if not auto_rps_global else 'bg-gray-500' }} text-white rounded-lg text-sm">{{ 'Auto' if not auto_rps_global else 'Manual' }}</button></form>
+                    {% if not auto_rps_global %}
+                    <form method="POST" action="/admin/set-rps-global" class="flex gap-2">
+                        <input type="number" name="rps" value="{{ rate_rps_global }}" min="0.1" max="100" step="0.1" class="w-24 border rounded px-2 py-1 text-sm">
+                        <button type="submit" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm">Aplicar</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Rate Limiter por IP -->
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">👤 Rate Limiter por IP</h2>
+                <div class="flex gap-4 mb-2">
+                    <p class="text-sm">Status: <span class="font-bold {{ 'text-green-600' if rate_per_ip_enabled else 'text-red-600' }}">{{ 'ATIVO' if rate_per_ip_enabled else 'DESATIVADO' }}</span></p>
+                    <p class="text-sm">Modo: <span class="font-bold {{ 'text-purple-600' if auto_rps_per_ip else 'text-blue-600' }}">{{ 'AUTO' if auto_rps_per_ip else 'MANUAL' }}</span></p>
+                </div>
+                <p class="text-sm mb-4">RPS Padrão: <strong>{{ rate_rps_default }}</strong></p>
+                <div class="flex gap-2 flex-wrap">
+                    <form method="POST" action="/admin/toggle-rate-per-ip"><button class="px-4 py-2 {{ 'bg-red-500' if rate_per_ip_enabled else 'bg-green-500' }} text-white rounded-lg text-sm">{{ 'Desativar' if rate_per_ip_enabled else 'Ativar' }}</button></form>
+                    <form method="POST" action="/admin/toggle-auto-per-ip"><button class="px-4 py-2 {{ 'bg-purple-500' if not auto_rps_per_ip else 'bg-gray-500' }} text-white rounded-lg text-sm">{{ 'Auto' if not auto_rps_per_ip else 'Manual' }}</button></form>
+                    <form method="POST" action="/admin/set-rps-per-ip-default" class="flex gap-2">
+                        <input type="number" name="rps" value="{{ rate_rps_default }}" min="0.1" max="50" step="0.1" class="w-24 border rounded px-2 py-1 text-sm">
+                        <button type="submit" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm">Aplicar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Linha 2: IPs Ativos e Controle Individual -->
+        <div class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="font-bold text-lg mb-4">📋 IPs Ativos e RPS por IP</h2>
+            {% if ip_data %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left">IP</th>
+                            <th class="px-3 py-2 text-center">Req/min</th>
+                            <th class="px-3 py-2 text-center">RPS Atual</th>
+                            <th class="px-3 py-2 text-center">Modo</th>
+                            <th class="px-3 py-2 text-left">Novo RPS</th>
+                            <th class="px-3 py-2 text-left">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for item in ip_data %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 font-mono text-xs">{{ item.ip }}</td>
+                            <td class="px-3 py-2 text-center">{{ item.rpm }}</td>
+                            <td class="px-3 py-2 text-center font-bold">{{ item.rps }}</td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="px-2 py-1 rounded text-xs {{ 'bg-green-100 text-green-700' if item.auto else 'bg-blue-100 text-blue-700' }}">
+                                    {{ 'Auto' if item.auto else 'Manual' }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <form method="POST" action="/admin/set-ip-rps" class="flex gap-1">
+                                    <input type="hidden" name="ip" value="{{ item.ip }}">
+                                    <input type="number" name="rps" value="{{ item.rps }}" min="0.1" max="50" step="0.1" class="w-20 border rounded px-2 py-1 text-xs">
+                                    <button type="submit" class="px-2 py-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded text-xs">Definir</button>
+                                </form>
+                            </td>
+                            <td class="px-3 py-2">
+                                <div class="flex gap-1">
+                                    {% if not item.auto %}
+                                    <form method="POST" action="/admin/reset-ip-rps" class="inline">
+                                        <input type="hidden" name="ip" value="{{ item.ip }}">
+                                        <button class="text-xs text-orange-500 hover:underline">Reset</button>
+                                    </form>
+                                    {% endif %}
+                                    <form method="POST" action="/admin/ban-ip" class="inline">
+                                        <input type="hidden" name="ip" value="{{ item.ip }}">
+                                        <button class="text-xs text-red-500 hover:underline">Banir</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">Nenhum IP ativo nos últimos 60 segundos.</p>
+            {% endif %}
+        </div>
+
+        <!-- Linha 3: Auto-Ban e IPs Banidos -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">🤖 Auto-Ban</h2>
+                <p class="text-sm">Status: <span class="font-bold {{ 'text-green-600' if auto_ban_enabled else 'text-red-600' }}">{{ 'ATIVO' if auto_ban_enabled else 'DESATIVADO' }}</span></p>
+                <p class="text-sm mb-2">Threshold: <strong>{{ auto_ban_threshold }}</strong> req/min</p>
+                <div class="flex gap-2 flex-wrap">
+                    <form method="POST" action="/admin/toggle-auto-ban"><button class="px-4 py-2 {{ 'bg-red-500' if auto_ban_enabled else 'bg-green-500' }} text-white rounded-lg text-sm">{{ 'Desativar' if auto_ban_enabled else 'Ativar' }}</button></form>
+                    <form method="POST" action="/admin/set-auto-ban-threshold" class="flex gap-2">
+                        <input type="number" name="threshold" value="{{ auto_ban_threshold }}" min="10" max="1000" class="w-24 border rounded px-2 py-1 text-sm">
+                        <button type="submit" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm">Aplicar</button>
+                    </form>
+                </div>
+                {% if auto_banned_ips %}
+                <div class="mt-4 p-2 bg-red-50 rounded border border-red-200">
+                    <p class="text-sm font-bold text-red-700">Auto-banidos ({{ auto_banned_ips|length }}):</p>
+                    {% for ip in auto_banned_ips %}
+                    <span class="text-xs font-mono text-red-600 mr-2">{{ ip }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">🚫 IPs Banidos</h2>
+                {% if banned_ips %}
+                <ul class="text-sm mb-2 max-h-32 overflow-y-auto">
+                    {% for ip in banned_ips %}
+                    <li class="flex justify-between items-center mb-1 bg-red-50 px-3 py-1 rounded">
+                        <span class="font-mono text-red-600 text-sm">{{ ip }}</span>
+                        <form method="POST" action="/admin/unban-ip" class="inline">
+                            <input type="hidden" name="ip" value="{{ ip }}">
+                            <button class="text-xs text-green-600 hover:underline font-bold">desbanir</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-500 mb-4">Nenhum IP banido.</p>
+                {% endif %}
+                <form method="POST" action="/admin/clear-logs" class="mt-2">
+                    <button type="submit" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm">Limpar Logs ({{ total_logs }})</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Exportação -->
+        <div class="bg-white rounded-xl shadow p-4 mb-6">
+            <h2 class="font-bold text-lg mb-2">📥 Exportar Dados</h2>
+            <div class="flex gap-2 flex-wrap">
+                <a href="/admin/export/json" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">JSON</a>
+                <a href="/admin/export/csv" class="px-3 py-1 bg-green-500 text-white rounded text-sm">CSV</a>
+                <a href="/admin/export/sql" class="px-3 py-1 bg-purple-500 text-white rounded text-sm">SQL</a>
+                <a href="/admin/export/md" class="px-3 py-1 bg-gray-500 text-white rounded text-sm">Markdown</a>
+                <a href="/admin/export/txt" class="px-3 py-1 bg-orange-500 text-white rounded text-sm">TXT</a>
+            </div>
+        </div>
+
+        <!-- Estatísticas e Relatório -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">📊 Estatísticas</h2>
+                {% if stats %}
+                <div class="grid grid-cols-2 gap-2 text-sm mb-4">
+                    <div class="bg-gray-50 p-2 rounded">Total: <strong>{{ stats.total }}</strong></div>
+                    <div class="bg-gray-50 p-2 rounded">IPs Únicos: <strong>{{ stats.unique_ips }}</strong></div>
+                    <div class="bg-gray-50 p-2 rounded">404s: <strong>{{ stats.errors_404 }}</strong></div>
+                    <div class="bg-gray-50 p-2 rounded">403s: <strong>{{ stats.errors_403 }}</strong></div>
+                    <div class="bg-gray-50 p-2 rounded">Avg/IP: <strong>{{ stats.avg_req_per_ip }}</strong></div>
+                </div>
+                <h3 class="font-semibold text-sm mb-1">Top IPs:</h3>
+                <ul class="text-xs mb-4">
+                    {% for ip, count in stats.top_ips %}
+                    <li class="flex justify-between py-1 border-b"><span class="font-mono">{{ ip }}</span><span>{{ count }} reqs</span>
+                        <form method="POST" action="/admin/ban-ip" class="inline"><input type="hidden" name="ip" value="{{ ip }}"><button class="text-red-500 hover:underline text-xs">banir</button></form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if stats.suspicious_ips %}<div class="bg-yellow-50 border border-yellow-200 p-2 rounded text-sm mb-2">⚠️ Suspeitos: {{ stats.suspicious_ips | join(', ') }}</div>{% endif %}
+                {% if stats.high_404 %}<div class="bg-orange-50 border border-orange-200 p-2 rounded text-sm mb-2">⚠️ Muitos 404.</div>{% endif %}
+                {% else %}<p class="text-sm text-gray-500">Sem dados.</p>{% endif %}
+            </div>
+            <div class="bg-white rounded-xl shadow p-6">
+                <h2 class="font-bold text-lg mb-3">📄 Relatório de Segurança</h2>
+                {% if report %}
+                <ul class="text-sm space-y-1"><li><strong>Alvo:</strong> {{ report.target }}</li><li><strong>Gerado:</strong> {{ report.generated_at }}</li><li><strong>Portas:</strong> {{ report.open_ports | length }}</li><li><strong>Findings:</strong> {{ report.findings_count }}</li></ul>
+                {% if report.high_findings %}<div class="mt-3 p-2 bg-red-50 border border-red-200 rounded"><p class="font-bold text-red-700 text-sm">🔴 Críticos:</p>{% for f in report.high_findings[:5] %}<p class="text-xs text-red-600">- {{ f.get('type','') }}</p>{% endfor %}</div>{% endif %}
+                {% else %}<p class="text-sm text-gray-500">Execute um scan para gerar.</p>{% endif %}
+            </div>
+        </div>
+
+        <!-- Sugestões -->
+        {% if stats.suggestions %}
+        <div class="bg-yellow-50 border border-yellow-300 rounded-xl shadow p-4 mb-6">
+            <h2 class="font-bold text-lg mb-2">🛡️ Ações Recomendadas</h2>
+            <ul class="list-disc pl-5 text-sm space-y-1">{% for s in stats.suggestions %}<li>{{ s }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+
+        <!-- Tabela de Logs -->
+        <div class="bg-white rounded-xl shadow p-6">
+            <h2 class="font-bold text-lg mb-4">📋 Últimos Logs ({{ logs|length }})</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left">Hora</th><th class="px-3 py-2 text-left">Método</th><th class="px-3 py-2 text-left">Status</th><th class="px-3 py-2 text-left">Path</th><th class="px-3 py-2 text-left">IP</th><th class="px-3 py-2 text-left">User-Agent</th><th class="px-3 py-2 text-left">Ações</th></tr></thead>
+                    <tbody class="divide-y">
+                        {% for log in logs|reverse %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-1 text-gray-500 text-xs">{{ log.timestamp }}</td>
+                            <td class="px-3 py-1"><span class="px-2 py-1 rounded text-xs {{ 'bg-green-100' if log.method=='GET' else 'bg-blue-100' }}">{{ log.method }}</span></td>
+                            <td class="px-3 py-1"><span class="px-2 py-1 rounded text-xs {{ 'bg-red-100' if log.status==404 else 'bg-gray-100' }}">{{ log.status }}</span></td>
+                            <td class="px-3 py-1 font-mono text-xs">{{ log.path[:40] }}</td>
+                            <td class="px-3 py-1 text-gray-500 text-xs">{{ log.ip }}</td>
+                            <td class="px-3 py-1 text-gray-400 text-xs truncate max-w-[150px]">{{ log.user_agent }}</td>
+                            <td class="px-3 py-1"><form method="POST" action="/admin/ban-ip"><input type="hidden" name="ip" value="{{ log.ip }}"><button class="text-red-500 hover:underline text-xs">banir</button></form></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
